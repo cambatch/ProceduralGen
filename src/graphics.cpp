@@ -1,7 +1,6 @@
 #include "graphics.hpp"
 
 #include <iostream>
-#include <format>
 #include <fstream>
 #include <sstream>
 #include <vector>
