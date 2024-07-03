@@ -6,6 +6,7 @@
 #include "window.hpp"
 #include "camera.hpp"
 #include "noise.hpp"
+#include "texture.hpp"
 
 
 class App
