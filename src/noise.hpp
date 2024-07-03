@@ -1,8 +1,8 @@
+#pragma once
+
 #include <vector>
 
 #include <FastNoise/FastNoise.h>
-
-#include "texture.hpp"
 
 
 class NoiseGen2D

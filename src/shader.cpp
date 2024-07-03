@@ -1,7 +1,7 @@
 #include "shader.hpp"
 
 #include <iostream>
-#include <format>
+#include <vector>
 
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -107,7 +107,7 @@ int Shader::GetUniformLocation(Shader& shader, const char* name) {
 	    if(!done)
 	    {
 	        done = true;
-	        std::cerr << std::format("Uniform: '{}' does not exist!\n", name);
+	        std::cerr << "Uniform: " << name << " does not exist!\n";
 	    }
 		return loc;
 	}
@@ -125,7 +125,7 @@ void Shader::CheckShaderCompile(unsigned int shader, unsigned int type)
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &val);
         std::vector<char> message(val);
         glGetShaderInfoLog(shader, val, &val, message.data());
-        std::cerr << std::format("Error compiling {}: {}\n", ShaderTypeToName(type), message.data());
+        std::cerr << "Error compiling " << ShaderTypeToName(type) << ": " << message.data() << '\n';
     }
 }
 
@@ -138,7 +138,7 @@ void Shader::CheckShaderLink(unsigned int shader)
         glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &val);
         std::vector<char> message(val);
         glGetShaderInfoLog(shader, val, &val, message.data());
-        std::cerr << std::format("Error linking shader: {}\n", message.data());
+        std::cerr << "Error linking shader: " << message.data() << '\n';
     }
 }
 

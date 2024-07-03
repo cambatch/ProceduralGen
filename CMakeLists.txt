@@ -19,10 +19,10 @@ add_subdirectory(dep/glm-1.0.1)
 
 add_subdirectory(dep/stb_image)
 
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Assimp static lib" FORCE)
-set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Assimp lib only" FORCE)
-set(ASSIMP_INSTALL OFF CACHE BOOL "Assimp lib only" FORCE)
-add_subdirectory(dep/assimp-5.4.0)
+# set(BUILD_SHARED_LIBS OFF CACHE BOOL "Assimp static lib" FORCE)
+# set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Assimp lib only" FORCE)
+# set(ASSIMP_INSTALL OFF CACHE BOOL "Assimp lib only" FORCE)
+# add_subdirectory(dep/assimp-5.4.0)
 
 add_subdirectory(dep/imgui)
 
@@ -45,9 +45,8 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE dep/glm-1.0.1)
 
-target_link_libraries(${PROJECT_NAME} glad glfw glm stb_image assimp imgui FastNoise2)
+target_link_libraries(${PROJECT_NAME} glad glfw glm stb_image imgui FastNoise2)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    $<$<CONFIG:Debug>:-DDEBUG -DGLFW_INCLUDE_NONE>
-    $<$<CONFIG:Release>:-DNDEBUG -DGLFW_INCLUDE_NONE>
+    -DGLFW_INCLUDE_NONE
 )

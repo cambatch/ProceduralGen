@@ -1,10 +1,9 @@
 #include "texture.hpp"
 
-#include <iostream>
-#include <format>
-#include <vector>
-
 #include <glad/gl.h>
+
+#include <iostream>
+#include <vector>
 
 
 Texture::Texture()
@@ -50,7 +49,7 @@ Texture::Texture(const char* path)
     }
     else
     {
-        std::cout << std::format("Failed to load texture at path: {}\n", path);
+        std::cerr << "Failed to load texture at path: " << path << '\n';
     }
 
     stbi_image_free(data);
@@ -59,6 +58,21 @@ Texture::Texture(const char* path)
 Texture::~Texture()
 {
     glDeleteTextures(1, &id);
+}
+Texture& Texture::operator=(Texture&& tex)
+{
+    if(this != &tex)
+    {
+        glDeleteTextures(1, &id);
+        id = tex.id;
+        width = tex.width;
+        height = tex.height;
+
+        tex.id = 0;
+        tex.width = 0;
+        tex.height = 0;
+    }
+    return *this;
 }
 
 void Texture::Bind(unsigned int slot) const

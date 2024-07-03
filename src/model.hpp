@@ -2,7 +2,6 @@
 
 #include <string_view>
 #include <iostream>
-#include <format>
 #include <vector>
 #include <string>
 
@@ -46,7 +45,7 @@ private:
         const aiScene* scene = importer.ReadFile(path.data(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         {
-            std::cout << std::format("Error loading model: '{}'\n", path);
+            std::cerr << "Error loading model: " << path << '\n';
             return;
         }
 

@@ -1,6 +1,7 @@
-#include <glad/gl.h>
-#include <stb_image.h>
+#pragma once
 
+#include <stb_image.h>
+#include <cstdint>
 #include <vector>
 
 
@@ -17,23 +18,8 @@ struct Texture
         tex.height = 0;
     }
 
-    Texture& operator=(Texture&& tex)
-    {
-        if(this != &tex)
-        {
-            glDeleteTextures(1, &id);
-            id = tex.id;
-            width = tex.width;
-            height = tex.height;
-
-            tex.id = 0;
-            tex.width = 0;
-            tex.height = 0;
-        }
-        return *this;
-    }
-
     ~Texture();
+    Texture& operator=(Texture&& tex);
 
     void Bind(unsigned int slot = 0) const;
     void Unbind() const;

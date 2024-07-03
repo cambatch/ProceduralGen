@@ -1,11 +1,9 @@
 #include "window.hpp"
+
 #include "inputListener.hpp"
 
 #include <glad/gl.h>
-#include <GLFW/glfw3.h>
-
 #include <iostream>
-#include <format>
 
 
 Window::Window(int32_t width, int32_t height, const char* title)
@@ -53,7 +51,7 @@ Window::Window(int32_t width, int32_t height, const char* title)
         std::cerr << "Failed to initlaize OpenGL context!\n";
         exit(EXIT_FAILURE);
     }
-    std::cout << std::format("OpenGL version: {}.{}\n", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+    std::cout << "OpenGL version: " << GLAD_VERSION_MAJOR(version) << ',' << GLAD_VERSION_MINOR(version) << '\n';
 
     glEnable(GL_DEPTH_TEST);
 

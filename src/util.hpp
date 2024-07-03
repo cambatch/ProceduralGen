@@ -1,7 +1,8 @@
+#pragma once
+
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <format>
 #include <sstream>
 #include <chrono>
 
@@ -10,7 +11,7 @@ static std::string ReadFile(const char* path)
     std::ifstream file(path);
     if(!file.is_open())
     {
-        std::cerr << std::format("Failed to open '{}'\n", path);
+        std::cerr << "Failed to open " << path << '\n';
         return {};
     }
 
