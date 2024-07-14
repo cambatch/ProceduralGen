@@ -5,8 +5,8 @@
 #include "inputManager.hpp"
 #include "window.hpp"
 #include "camera.hpp"
-#include "noise.hpp"
 #include "texture.hpp"
+#include "world.hpp"
 
 
 class App
@@ -28,12 +28,13 @@ private:
 	Window m_Window;
 	InputManager m_Input;
 	Camera m_Camera;
-	NoiseGen2D m_NoiseGen;
-	Texture* m_NoiseTexture;
-	Texture* m_ColorMapTexture;
+	Texture* m_FullNoiseTexture;
+	Texture* m_FullColorMapTexture;
 
 	float m_DeltaTime;
 	float m_PrevFrame;
 
 	bool m_GuiActive = false;
+
+	World m_World;
 };

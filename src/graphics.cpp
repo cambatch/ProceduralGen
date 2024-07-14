@@ -1,10 +1,5 @@
 #include "graphics.hpp"
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <stb_image.h>

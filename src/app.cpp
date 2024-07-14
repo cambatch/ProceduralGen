@@ -1,6 +1,5 @@
 #include "app.hpp"
 
-#include <algorithm>
 #include <iostream>
 
 #include <vector>
@@ -13,9 +12,16 @@
 #include "graphics.hpp"
 
 #include "shader.hpp"
+#include "texture.hpp"
 #include "util.hpp"
 
-void NormalizeNoiseValues(std::vector<float>& vals);
+
+std::vector<uint8_t> CreateColorMap(const std::vector<float>& heightMap);
+std::vector<uint8_t> GetColor(float val);
+
+
+std::vector<uint8_t> g_FullColorMap((32 * 32) * 4);
+std::vector<float> g_FullNoiseMap((256*256) * 4);
 
 std::vector<unsigned int> cubeIndices = {
     0, 1, 2, 3, 7, 1, 5, 4, 7, 6, 2, 4, 0, 1
@@ -33,16 +39,17 @@ std::vector<float> cubeVertices = {
 };
 
 App::App(int32_t width, int32_t height, const char* title)
-    : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input)
+    : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input), m_World(32)
 {
     m_Window.addInputListener(&m_Input);
+    m_World.GenChunk(0, 0);
+    g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
+    int size = m_World.ChunkSize();
 
-    m_NoiseGen = NoiseGen2D(500, 500, 6, 3.0f, 0.5f, 0.007f, 1.0f, 0);
-    m_NoiseGen.GenerateNoise();
-    m_NoiseGen.CreateColorMap();
-    m_NoiseGen.CreateHeightMap(100);
-    m_NoiseTexture = CreateTextureFromFloats(m_NoiseGen.Width(), m_NoiseGen.Height(), m_NoiseGen.Noise());
-    m_ColorMapTexture = CreateTextureFromBytes(m_NoiseGen.Width(), m_NoiseGen.Height(), m_NoiseGen.ColorMap());
+    const auto& heightMap = m_World.GetChunk(0, 0).HeightMap;
+    m_FullNoiseTexture = CreateTextureFromFloats(size, size, g_FullNoiseMap);
+    g_FullColorMap = CreateColorMap(g_FullNoiseMap);
+    m_FullColorMapTexture = CreateTextureFromBytes(size, size, g_FullColorMap);
 }
 
 App::~App()
@@ -55,17 +62,10 @@ App::~App()
 
 void App::Run()
 {
-    // unsigned int vao = CreateVertexArray();
-    // unsigned int vbo = CreateVertexBuffer(cubeVertices.data(), sizeof(float) * cubeVertices.size());
-    // unsigned int ibo = CreateIndexBuffer(cubeIndices.data(), sizeof(unsigned int) * cubeIndices.size());
-    // AddVertexAttrib(vao, 0, VertexAttribType::FLOAT, 3, sizeof(float) * 3, 0);
-
-    // Shader shader("assets/shaders/cube.vert", "assets/shaders/cube.frag");
-
     Shader shader("assets/shaders/terrain.vert", "assets/shaders/terrain.frag");
 
-    size_t width = m_NoiseGen.Width();
-    size_t height = m_NoiseGen.Height();
+    size_t width = m_World.ChunkSize();
+    size_t height = width;
 
     // We have position (3) and color (3) attributes.
     std::vector<float> vertices;
@@ -73,26 +73,20 @@ void App::Run()
     std::vector<uint32_t> indices;
     indices.reserve(6 * (width - 1) * (height - 1));
 
-    // size_t vertIndex = 0;
+    auto heightMap = m_World.GetChunk(0, 0).HeightMap;
+    auto colorMap = g_FullColorMap;
 
-    auto heightMap = m_NoiseGen.HeightMap();
-    auto colorMap = m_NoiseGen.ColorMap();
+    float heightScale = 50.0f;
 
     // Generate vertices
     for(size_t y = 0; y < height; ++y)
     {
         for(size_t x = 0; x < width; ++x)
         {
-            // vertices[vertIndex++] = x;
-            // vertices[vertIndex++] = heightMap[y * width + x];
-            // vertices[vertIndex++] = y;
             vertices.push_back(x);
-            vertices.push_back(heightMap[y * width + x]);
+            vertices.push_back(heightMap[y * width + x] * heightScale);
             vertices.push_back(y);
 
-            // vertices[vertIndex++] = (float)colorMap[(y * width + x) * 4 + 0] / 255.0f;
-            // vertices[vertIndex++] = (float)colorMap[(y * width + x) * 4 + 1] / 255.0f;
-            // vertices[vertIndex++] = (float)colorMap[(y * width + x) * 4 + 2] / 255.0f;
             vertices.push_back(colorMap[(y * width + x) * 4 + 0] / 255.0f);
             vertices.push_back(colorMap[(y * width + x) * 4 + 1] / 255.0f);
             vertices.push_back(colorMap[(y * width + x) * 4 + 2] / 255.0f);
@@ -161,7 +155,6 @@ void App::Run()
         shader.SetUniform("projection", proj);
 
         BindVertexArray(vao);
-        // glDrawElements(GL_TRIANGLE_STRIP, cubeIndices.size(), GL_UNSIGNED_INT, 0);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
 
@@ -239,23 +232,22 @@ void App::SetupImgui()
 
 void App::DrawNoiseTextureWindow()
 {
-    static float scale = m_NoiseGen.Scale();
-    static int octaves = m_NoiseGen.Octaves();
-    static float lacunarity = m_NoiseGen.Lacunarity();
-    static float gain = m_NoiseGen.Gain();
-    static float frequency = m_NoiseGen.Frequency();
-    static int seed = m_NoiseGen.Seed();
-    static int width = m_NoiseGen.Width();
-    static int height = m_NoiseGen.Height();
+    static float scale = 1.0f;
+    static int octaves = m_World.GetNoiseGen().Octaves();
+    static float lacunarity = m_World.GetNoiseGen().Lacunarity();
+    static float gain = m_World.GetNoiseGen().Gain();
+    static int seed = m_World.GetNoiseGen().Seed();
+    static int width = m_World.ChunkSize();
+    static int height = m_World.ChunkSize();
     static bool changed = false;
     static bool showColorMap = false;
 
     ImTextureID texID;
-    if(showColorMap) texID = (void*)(intptr_t)m_ColorMapTexture->id;
-    else texID = (void*)(intptr_t)m_NoiseTexture->id;
+    if(showColorMap) texID = (void*)(intptr_t)m_FullColorMapTexture->id;
+    else texID = (void*)(intptr_t)m_FullNoiseTexture->id;
 
     ImGui::Begin("Texture window");
-    ImGui::Image(texID, ImVec2(m_NoiseGen.Width(), m_NoiseGen.Height()));
+    ImGui::Image(texID, ImVec2(512, 512));
 
     if(ImGui::InputInt("Width", &width)) changed = true;
     if(ImGui::InputInt("Height", &height)) changed = true;
@@ -263,7 +255,6 @@ void App::DrawNoiseTextureWindow()
     if(ImGui::InputInt("Octaves", &octaves)) changed = true;
     if(ImGui::InputFloat("Lacunarity", &lacunarity)) changed = true;
     if(ImGui::InputFloat("Gain (Persistence)", &gain)) changed = true;
-    if(ImGui::InputFloat("Frequency", &frequency)) changed = true;
     if(ImGui::InputInt("Seed", &seed)) changed = true;
 
     if(ImGui::Button("Toggle texture"))
@@ -276,24 +267,25 @@ void App::DrawNoiseTextureWindow()
         if(changed)
         {
             std::cout << "Generating new noise map\n";
-            m_NoiseGen.SetDims(width, height);
-            m_NoiseGen.SetScale(scale);
-            m_NoiseGen.SetOctaveCount(octaves);
-            m_NoiseGen.SetLacunarity(lacunarity);
-            m_NoiseGen.SetGain(gain);
-            m_NoiseGen.SetFrequency(frequency);
-            m_NoiseGen.SetSeed(seed);
+            auto& noiseGen = m_World.GetNoiseGen();
+            noiseGen.SetOctaveCount(octaves);
+            noiseGen.SetLacunarity(lacunarity);
+            noiseGen.SetGain(gain);
+            noiseGen.SetSeed(seed);
+            noiseGen.SetChunkDims(width, height);
+
             Timer timer;
 
-            m_NoiseGen.GenerateNoise();
-            m_NoiseGen.CreateColorMap();
+            g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
+            g_FullColorMap = CreateColorMap(g_FullNoiseMap);
+
             std::cout << "Creation took " <<  timer.ElapsedMilli() << " Milliseconds\n";
 
             // Create new textures
-            delete m_NoiseTexture;
-            m_NoiseTexture = CreateTextureFromFloats(m_NoiseGen.Width(), m_NoiseGen.Height(), m_NoiseGen.Noise());
-            delete m_ColorMapTexture;
-            m_ColorMapTexture = CreateTextureFromBytes(m_NoiseGen.Width(), m_NoiseGen.Height(), m_NoiseGen.ColorMap());
+            delete m_FullNoiseTexture;
+            m_FullNoiseTexture = CreateTextureFromFloats(32, 32, g_FullNoiseMap);
+            delete m_FullColorMapTexture;
+            m_FullColorMapTexture = CreateTextureFromBytes(32, 32, g_FullColorMap);
 
             changed = false;
         }
@@ -302,14 +294,29 @@ void App::DrawNoiseTextureWindow()
     ImGui::End();
 }
 
-void NormalizeNoiseValues(std::vector<float>& noiseVals)
+std::vector<uint8_t> CreateColorMap(const std::vector<float>& heightMap)
 {
-    float minVal = *std::min_element(noiseVals.begin(), noiseVals.end());
-    float maxVal = *std::max_element(noiseVals.begin(), noiseVals.end());
+    std::vector<uint8_t> colorMap(heightMap.size() * 4);
 
-    for(float& val : noiseVals)
+    for(size_t i = 0; i < heightMap.size(); ++i)
     {
-        val = (val - minVal) / (maxVal - minVal);
+        std::vector<uint8_t> c = GetColor(heightMap[i]);
+
+        colorMap[i * 4 + 0] = c[0];
+        colorMap[i * 4 + 1] = c[1];
+        colorMap[i * 4 + 2] = c[2];
+        colorMap[i * 4 + 3] = c[3];
     }
+    return colorMap;
 }
 
+std::vector<uint8_t> GetColor(float val)
+{
+    std::vector<uint8_t> color(4);
+
+    if(val < -0.3f) color = { 0, 0 , 255, 255 };
+    else if(val < 0.2f) color = { 0, 255, 0, 255 };
+    else if(val < 0.6f) color = { 139, 69, 19, 255 };
+    else color = { 255, 255, 255, 255 };
+    return color;
+}

@@ -9,7 +9,7 @@
 class Camera
 {
 public:
-    glm::vec3 Position = { 0.0f, 0.0f, 5.0f };
+    glm::vec3 Position = { 0.0f, 0.0f, 0.0f };
     glm::quat Orientation = { 1.0f, 0.0f, 0.0f, 0.0f };
 
     Camera(InputManager* input);
@@ -43,4 +43,6 @@ private:
     glm::vec2 m_LastMousePos;
 
     InputManager* m_Input;
+
+    static constexpr glm::vec3 WorldUp = { 0.0f, 1.0f, 0.0f };
 };
