@@ -30,12 +30,12 @@ private:
 
     // Frustum
     float m_NearClip = 0.1f;
-    float m_FarClip = 256.0f;
+    float m_FarClip = 320.0f;
     float m_Fov = 45.0f;
     float m_AspectRatio = 16.0f / 9.0f;
 
     // movement
-    float m_MoveSpeed = 2.5f;
+    float m_MoveSpeed = 10.0f;
     float m_Sensitivity = 0.1f;
 
     bool m_LockOrientation = false;

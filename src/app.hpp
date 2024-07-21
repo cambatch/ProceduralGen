@@ -22,8 +22,6 @@ private:
 
 	void SetupImgui();
 
-	void DrawNoiseTextureWindow();
-
 private:
 	Window m_Window;
 	InputManager m_Input;

@@ -70,15 +70,6 @@ App::App(int32_t width, int32_t height, const char* title)
     : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input)
 {
     m_Window.addInputListener(&m_Input);
-    m_World.GenChunk(0, 0);
-    // m_World.GenChunk(0, 1);
-    g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
-    // int size = m_World.GetChunkSize();
-
-    // const auto& heightMap = m_World.GetChunk(0, 0).HeightMap;
-    // m_FullNoiseTexture = CreateTextureFromFloats(size, size, g_FullNoiseMap);
-    // g_FullColorMap = CreateColorMap(g_FullNoiseMap);
-    // m_FullColorMapTexture = CreateTextureFromBytes(size, size, g_FullColorMap);
 }
 
 App::~App()
@@ -132,42 +123,25 @@ void App::Run()
         shader.SetUniform("view", view);
         shader.SetUniform("projection", proj);
 
-        BindVertexArray(vao);
-        auto& chunk = m_World.GetChunk(0, 0);
-
-        const std::vector<const Chunk*> chunks = { &m_World.GetChunk(0, 0)};
+        m_World.UpdateActiveChunks(m_Camera.Position);
+        std::vector<const Chunk*> chunks = m_World.GetActiveChunks(m_Camera.Position);
 
         for(auto chunk : chunks)
         {
-            for(int x = 0; x < 32; ++x)
-            {
-                for(int y = 0; y < 256; ++y)
-                {
-                    for(int z = 0; z < 32; ++z)
-                    {
-                        if((uint8_t)chunk->Blocks[x][y][z] == 1)
-                        {
-                            glm::mat4 model  = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
-                            shader.SetUniform("model", model);
-                            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-                        }
-                    }
-                }
-            }
+            glm::mat4 model(1.0f);
+            model = glm::translate(model, glm::vec3(chunk->X * ChunkSize, 0, chunk->Y * ChunkSize));
+            shader.SetUniform("model", model);
+
+            chunk->Render();
         }
 
         // DrawImGui Stuff
-        // ImGui_ImplOpenGL3_NewFrame();
-        // ImGui_ImplGlfw_NewFrame();
-        // ImGui::NewFrame();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
-        // if(m_GuiActive)
-        // {
-        //     DrawNoiseTextureWindow();
-        // }
-
-        // ImGui::Render();
-        // ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         m_Window.SwapBuffers();
     }
@@ -227,70 +201,6 @@ void App::SetupImgui()
     ImGui_ImplGlfw_InitForOpenGL(m_Window.GetGLFWWindow(), true);
     ImGui_ImplOpenGL3_Init();
 }
-
-// void App::DrawNoiseTextureWindow()
-// {
-//     static float scale = 1.0f;
-//     static int octaves = m_World.GetNoiseGen().Octaves();
-//     static float lacunarity = m_World.GetNoiseGen().Lacunarity();
-//     static float gain = m_World.GetNoiseGen().Gain();
-//     static int seed = m_World.GetNoiseGen().Seed();
-//     // static int width = m_World.GetChunkSize();
-//     // static int height = m_World.GetChunkSize();
-//     static bool changed = false;
-//     static bool showColorMap = false;
-
-//     ImTextureID texID;
-//     if(showColorMap) texID = (void*)(intptr_t)m_FullColorMapTexture->id;
-//     else texID = (void*)(intptr_t)m_FullNoiseTexture->id;
-
-//     ImGui::Begin("Texture window");
-//     ImGui::Image(texID, ImVec2(512, 512));
-
-//     // if(ImGui::InputInt("Width", &width)) changed = true;
-//     // if(ImGui::InputInt("Height", &height)) changed = true;
-//     if(ImGui::InputFloat("Noise Scale", &scale)) changed = true;
-//     if(ImGui::InputInt("Octaves", &octaves)) changed = true;
-//     if(ImGui::InputFloat("Lacunarity", &lacunarity)) changed = true;
-//     if(ImGui::InputFloat("Gain (Persistence)", &gain)) changed = true;
-//     if(ImGui::InputInt("Seed", &seed)) changed = true;
-
-//     if(ImGui::Button("Toggle texture"))
-//     {
-//         showColorMap = !showColorMap;
-//     }
-
-//     if(ImGui::Button("Generate new noise map"))
-//     {
-//         if(changed)
-//         {
-//             std::cout << "Generating new noise map\n";
-//             auto& noiseGen = m_World.GetNoiseGen();
-//             noiseGen.SetOctaveCount(octaves);
-//             noiseGen.SetLacunarity(lacunarity);
-//             noiseGen.SetGain(gain);
-//             noiseGen.SetSeed(seed);
-//             // noiseGen.SetChunkDims(width, height);
-
-//             Timer timer;
-
-//             g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
-//             g_FullColorMap = CreateColorMap(g_FullNoiseMap);
-
-//             std::cout << "Creation took " <<  timer.ElapsedMilli() << " Milliseconds\n";
-
-//             // Create new textures
-//             delete m_FullNoiseTexture;
-//             m_FullNoiseTexture = CreateTextureFromFloats(32, 32, g_FullNoiseMap);
-//             delete m_FullColorMapTexture;
-//             m_FullColorMapTexture = CreateTextureFromBytes(32, 32, g_FullColorMap);
-
-//             changed = false;
-//         }
-//     }
-
-//     ImGui::End();
-// }
 
 std::vector<uint8_t> CreateColorMap(const std::vector<float>& heightMap)
 {

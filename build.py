@@ -38,7 +38,7 @@ def cmake_build(build_dir, build_type, generator):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Input build type")
+        print("Input build type (Release/Debug)")
         exit()
 
     build_type = sys.argv[1]

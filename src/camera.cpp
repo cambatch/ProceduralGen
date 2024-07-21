@@ -55,7 +55,7 @@ void Camera::updatePosition(float deltaTime)
     float velocity = m_MoveSpeed * deltaTime;
 
     if(m_Input->KeyPressed(Key::LEFT_SHIFT))
-        velocity *= 6;
+        velocity *= 10;
 
     if(m_Input->KeyPressed(Key::SPACE))
         Position += WorldUp * velocity;
