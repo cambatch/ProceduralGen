@@ -1,18 +1,31 @@
 #pragma once
 
 #include <unordered_map>
+#include <array>
+#include <iostream>
 
 #include "noise.hpp"
+
+
+// Chunks are 32x256x32
+static const int ChunkSize = 32;
+static const int ChunkHeight = 256;
+
+
+enum class BlockType : uint8_t {
+    AIR = 0,
+    DIRT = 1
+};
 
 
 struct Chunk {
     int32_t X;
     int32_t Y;
-    std::vector<float> HeightMap;
+    std::array<std::array<std::array<BlockType, ChunkSize>, ChunkHeight>, ChunkSize> Blocks;
 
-    Chunk() : X(0), Y(0), HeightMap(0) {}
-    Chunk(int32_t x, int32_t y, int32_t size)
-        : X(x), Y(y), HeightMap(size * size)
+    Chunk() : X(0), Y(0), Blocks() {}
+    Chunk(int32_t x, int32_t y)
+        : X(x), Y(y), Blocks()
     {}
 };
 
@@ -29,9 +42,8 @@ struct HashPair
 
 class World {
 public:
-    // Chunks are 32x32
-    World(int chunkSize)
-        : m_ChunkSize(chunkSize), m_NoiseGen(6, 2.0f, 0.5f, 0, chunkSize, chunkSize)
+    World()
+        : m_NoiseGen(6, 2.0f, 0.5f, 0, ChunkSize, ChunkSize)
     {}
 
     const Chunk& GetChunk(int x, int y) const { return m_ChunkMap.at(ChunkKey{x, y}); }
@@ -40,19 +52,39 @@ public:
     const NoiseGen& GetNoiseGen() const { return m_NoiseGen; }
     NoiseGen& GetNoiseGen() { return m_NoiseGen; }
 
-    int ChunkSize() const { return m_ChunkSize; }
+    
 
 private:
     void AddChunk(int32_t chunkX, int32_t chunkY)
     {
-        Chunk chunk(chunkX, chunkY, m_ChunkSize);
+        Chunk chunk(chunkX, chunkY);
 
-        chunk.HeightMap = m_NoiseGen.GenerateNoise2D(chunkX, chunkY, 128);
+        std::vector<float> heightMap = m_NoiseGen.GenerateNoise2D(chunkX, chunkY, 128);
+
+        for(int z = 0; z < ChunkSize; ++z)
+        {
+            for(int x = 0; x < ChunkSize; ++x)
+            {
+                float height = (heightMap[z * ChunkSize + x] + 1.0f) / 2.0f;
+                int intHeight = (int)(height * (ChunkHeight - 1));
+
+                for(int y = 0; y < ChunkHeight; ++y)
+                {
+                    if(y <= intHeight) {
+                        chunk.Blocks[x][y][z] = BlockType::DIRT;
+                    } else {
+                        chunk.Blocks[x][y][z] = BlockType::AIR;
+                    }
+                }
+            }
+        }
+        
         m_ChunkMap[ChunkKey{chunkX, chunkY}] = chunk;
+
+        std::cout << "Generated chunk " << chunkX << ' ' << chunkY << std::endl;
     }
 
 private:
-    int m_ChunkSize;
     NoiseGen m_NoiseGen;
     std::unordered_map<ChunkKey, Chunk, HashPair> m_ChunkMap;
 };

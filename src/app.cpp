@@ -38,18 +38,47 @@ std::vector<float> cubeVertices = {
      1.0,  1.0, -1.0,
 };
 
+std::vector<float> voxelVertices = {
+    // Front face
+    0.0f, 0.0f, 0.0f,
+    1.0f, 0.0f, 0.0f,
+    1.0f, 1.0f, 0.0f,
+    0.0f, 1.0f, 0.0f,
+    // Back face
+    0.0f, 0.0f, 1.0f,
+    1.0f, 0.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    0.0f, 1.0f, 1.0f
+};
+
+std::vector<unsigned int> voxelIndices = {
+    // Front face
+    0, 1, 2, 2, 3, 0,
+    // Back face
+    4, 5, 6, 6, 7, 4,
+    // Left face
+    0, 4, 7, 7, 3, 0,
+    // Right face
+    1, 5, 6, 6, 2, 1,
+    // Top face
+    3, 2, 6, 6, 7, 3,
+    // Bottom face
+    0, 1, 5, 5, 4, 0 
+};
+
 App::App(int32_t width, int32_t height, const char* title)
-    : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input), m_World(32)
+    : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input)
 {
     m_Window.addInputListener(&m_Input);
     m_World.GenChunk(0, 0);
+    // m_World.GenChunk(0, 1);
     g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
-    int size = m_World.ChunkSize();
+    // int size = m_World.GetChunkSize();
 
-    const auto& heightMap = m_World.GetChunk(0, 0).HeightMap;
-    m_FullNoiseTexture = CreateTextureFromFloats(size, size, g_FullNoiseMap);
-    g_FullColorMap = CreateColorMap(g_FullNoiseMap);
-    m_FullColorMapTexture = CreateTextureFromBytes(size, size, g_FullColorMap);
+    // const auto& heightMap = m_World.GetChunk(0, 0).HeightMap;
+    // m_FullNoiseTexture = CreateTextureFromFloats(size, size, g_FullNoiseMap);
+    // g_FullColorMap = CreateColorMap(g_FullNoiseMap);
+    // m_FullColorMapTexture = CreateTextureFromBytes(size, size, g_FullColorMap);
 }
 
 App::~App()
@@ -59,65 +88,15 @@ App::~App()
     ImGui::DestroyContext();
 }
 
-
 void App::Run()
 {
-    Shader shader("assets/shaders/terrain.vert", "assets/shaders/terrain.frag");
-
-    size_t width = m_World.ChunkSize();
-    size_t height = width;
-
-    // We have position (3) and color (3) attributes.
-    std::vector<float> vertices;
-    vertices.reserve(6 * (width * height));
-    std::vector<uint32_t> indices;
-    indices.reserve(6 * (width - 1) * (height - 1));
-
-    auto heightMap = m_World.GetChunk(0, 0).HeightMap;
-    auto colorMap = g_FullColorMap;
-
-    float heightScale = 50.0f;
-
-    // Generate vertices
-    for(size_t y = 0; y < height; ++y)
-    {
-        for(size_t x = 0; x < width; ++x)
-        {
-            vertices.push_back(x);
-            vertices.push_back(heightMap[y * width + x] * heightScale);
-            vertices.push_back(y);
-
-            vertices.push_back(colorMap[(y * width + x) * 4 + 0] / 255.0f);
-            vertices.push_back(colorMap[(y * width + x) * 4 + 1] / 255.0f);
-            vertices.push_back(colorMap[(y * width + x) * 4 + 2] / 255.0f);
-        }
-    }
-
-    // Generate indices
-    for(size_t y = 0; y < height - 1; ++y)
-    {
-        for(size_t x = 0; x < width - 1; ++x)
-        {
-            unsigned int topLeft = y * width + x;
-            unsigned int topRight = topLeft + 1;
-            unsigned int bottomLeft = (y + 1) * width + x;
-            unsigned int bottomRight = bottomLeft + 1;
-
-            indices.push_back(topLeft);
-            indices.push_back(bottomLeft);
-            indices.push_back(topRight);
-
-            indices.push_back(topRight);
-            indices.push_back(bottomLeft);
-            indices.push_back(bottomRight);
-        }
-    }
+    // Shader shader("assets/shaders/terrain.vert", "assets/shaders/terrain.frag");
+    Shader shader("assets/shaders/cube.vert", "assets/shaders/cube.frag");
 
     unsigned int vao = CreateVertexArray();
-    unsigned int vbo = CreateVertexBuffer(vertices.data(), sizeof(float) * vertices.size());
-    unsigned int ibo = CreateIndexBuffer(indices.data(), sizeof(uint32_t) * indices.size());
-    AddVertexAttrib(vao, 0, VertexAttribType::FLOAT, 3, sizeof(float) * 6, 0);
-    AddVertexAttrib(vao, 1, VertexAttribType::FLOAT, 3, sizeof(float) * 6, sizeof(float) * 3);
+    unsigned int vbo = CreateVertexBuffer(voxelVertices.data(), sizeof(float) * voxelVertices.size());
+    unsigned int ibo = CreateIndexBuffer(voxelIndices.data(), sizeof(unsigned int) * voxelIndices.size());
+    AddVertexAttrib(vao, 0, VertexAttribType::FLOAT, 3, sizeof(float) * 3, 0);
 
     SetupImgui();
 
@@ -145,7 +124,6 @@ void App::Run()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 model(1.0);
-        model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
         glm::mat4 view = m_Camera.GetViewMatrix();
         glm::mat4 proj = m_Camera.GetProjectionMatrix();
 
@@ -155,21 +133,41 @@ void App::Run()
         shader.SetUniform("projection", proj);
 
         BindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+        auto& chunk = m_World.GetChunk(0, 0);
 
+        const std::vector<const Chunk*> chunks = { &m_World.GetChunk(0, 0)};
 
-        // DrawImGui Stuff
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        if(m_GuiActive)
+        for(auto chunk : chunks)
         {
-            DrawNoiseTextureWindow();
+            for(int x = 0; x < 32; ++x)
+            {
+                for(int y = 0; y < 256; ++y)
+                {
+                    for(int z = 0; z < 32; ++z)
+                    {
+                        if((uint8_t)chunk->Blocks[x][y][z] == 1)
+                        {
+                            glm::mat4 model  = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
+                            shader.SetUniform("model", model);
+                            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+                        }
+                    }
+                }
+            }
         }
 
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        // DrawImGui Stuff
+        // ImGui_ImplOpenGL3_NewFrame();
+        // ImGui_ImplGlfw_NewFrame();
+        // ImGui::NewFrame();
+
+        // if(m_GuiActive)
+        // {
+        //     DrawNoiseTextureWindow();
+        // }
+
+        // ImGui::Render();
+        // ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         m_Window.SwapBuffers();
     }
@@ -230,69 +228,69 @@ void App::SetupImgui()
     ImGui_ImplOpenGL3_Init();
 }
 
-void App::DrawNoiseTextureWindow()
-{
-    static float scale = 1.0f;
-    static int octaves = m_World.GetNoiseGen().Octaves();
-    static float lacunarity = m_World.GetNoiseGen().Lacunarity();
-    static float gain = m_World.GetNoiseGen().Gain();
-    static int seed = m_World.GetNoiseGen().Seed();
-    static int width = m_World.ChunkSize();
-    static int height = m_World.ChunkSize();
-    static bool changed = false;
-    static bool showColorMap = false;
+// void App::DrawNoiseTextureWindow()
+// {
+//     static float scale = 1.0f;
+//     static int octaves = m_World.GetNoiseGen().Octaves();
+//     static float lacunarity = m_World.GetNoiseGen().Lacunarity();
+//     static float gain = m_World.GetNoiseGen().Gain();
+//     static int seed = m_World.GetNoiseGen().Seed();
+//     // static int width = m_World.GetChunkSize();
+//     // static int height = m_World.GetChunkSize();
+//     static bool changed = false;
+//     static bool showColorMap = false;
 
-    ImTextureID texID;
-    if(showColorMap) texID = (void*)(intptr_t)m_FullColorMapTexture->id;
-    else texID = (void*)(intptr_t)m_FullNoiseTexture->id;
+//     ImTextureID texID;
+//     if(showColorMap) texID = (void*)(intptr_t)m_FullColorMapTexture->id;
+//     else texID = (void*)(intptr_t)m_FullNoiseTexture->id;
 
-    ImGui::Begin("Texture window");
-    ImGui::Image(texID, ImVec2(512, 512));
+//     ImGui::Begin("Texture window");
+//     ImGui::Image(texID, ImVec2(512, 512));
 
-    if(ImGui::InputInt("Width", &width)) changed = true;
-    if(ImGui::InputInt("Height", &height)) changed = true;
-    if(ImGui::InputFloat("Noise Scale", &scale)) changed = true;
-    if(ImGui::InputInt("Octaves", &octaves)) changed = true;
-    if(ImGui::InputFloat("Lacunarity", &lacunarity)) changed = true;
-    if(ImGui::InputFloat("Gain (Persistence)", &gain)) changed = true;
-    if(ImGui::InputInt("Seed", &seed)) changed = true;
+//     // if(ImGui::InputInt("Width", &width)) changed = true;
+//     // if(ImGui::InputInt("Height", &height)) changed = true;
+//     if(ImGui::InputFloat("Noise Scale", &scale)) changed = true;
+//     if(ImGui::InputInt("Octaves", &octaves)) changed = true;
+//     if(ImGui::InputFloat("Lacunarity", &lacunarity)) changed = true;
+//     if(ImGui::InputFloat("Gain (Persistence)", &gain)) changed = true;
+//     if(ImGui::InputInt("Seed", &seed)) changed = true;
 
-    if(ImGui::Button("Toggle texture"))
-    {
-        showColorMap = !showColorMap;
-    }
+//     if(ImGui::Button("Toggle texture"))
+//     {
+//         showColorMap = !showColorMap;
+//     }
 
-    if(ImGui::Button("Generate new noise map"))
-    {
-        if(changed)
-        {
-            std::cout << "Generating new noise map\n";
-            auto& noiseGen = m_World.GetNoiseGen();
-            noiseGen.SetOctaveCount(octaves);
-            noiseGen.SetLacunarity(lacunarity);
-            noiseGen.SetGain(gain);
-            noiseGen.SetSeed(seed);
-            noiseGen.SetChunkDims(width, height);
+//     if(ImGui::Button("Generate new noise map"))
+//     {
+//         if(changed)
+//         {
+//             std::cout << "Generating new noise map\n";
+//             auto& noiseGen = m_World.GetNoiseGen();
+//             noiseGen.SetOctaveCount(octaves);
+//             noiseGen.SetLacunarity(lacunarity);
+//             noiseGen.SetGain(gain);
+//             noiseGen.SetSeed(seed);
+//             // noiseGen.SetChunkDims(width, height);
 
-            Timer timer;
+//             Timer timer;
 
-            g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
-            g_FullColorMap = CreateColorMap(g_FullNoiseMap);
+//             g_FullNoiseMap = m_World.GetNoiseGen().GenerateNoise2D(0, 0, 256);
+//             g_FullColorMap = CreateColorMap(g_FullNoiseMap);
 
-            std::cout << "Creation took " <<  timer.ElapsedMilli() << " Milliseconds\n";
+//             std::cout << "Creation took " <<  timer.ElapsedMilli() << " Milliseconds\n";
 
-            // Create new textures
-            delete m_FullNoiseTexture;
-            m_FullNoiseTexture = CreateTextureFromFloats(32, 32, g_FullNoiseMap);
-            delete m_FullColorMapTexture;
-            m_FullColorMapTexture = CreateTextureFromBytes(32, 32, g_FullColorMap);
+//             // Create new textures
+//             delete m_FullNoiseTexture;
+//             m_FullNoiseTexture = CreateTextureFromFloats(32, 32, g_FullNoiseMap);
+//             delete m_FullColorMapTexture;
+//             m_FullColorMapTexture = CreateTextureFromBytes(32, 32, g_FullColorMap);
 
-            changed = false;
-        }
-    }
+//             changed = false;
+//         }
+//     }
 
-    ImGui::End();
-}
+//     ImGui::End();
+// }
 
 std::vector<uint8_t> CreateColorMap(const std::vector<float>& heightMap)
 {
