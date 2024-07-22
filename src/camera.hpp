@@ -19,6 +19,11 @@ public:
     glm::mat4 GetViewMatrix();
     glm::mat4 GetProjectionMatrix();
 
+    void SetSensitivity(float sens) { m_Sensitivity = (sens > 0) ? sens : 0.1f; }
+    void SetMoveSpeed(float speed) { m_MoveSpeed = (speed > 0) ? speed : 1.0f; }
+    void SetNearClip(float dist) { m_NearClip = (dist > 0) ? dist : 0.1f; }
+    void SetFarClip(float dist) { m_FarClip = (dist > 0) ? dist : 100.0f; }
+
 private:
     void updateOrientation(float deltaTime);
     void updatePosition(float deltaTime);
@@ -30,7 +35,7 @@ private:
 
     // Frustum
     float m_NearClip = 0.1f;
-    float m_FarClip = 320.0f;
+    float m_FarClip = 100.0f;
     float m_Fov = 45.0f;
     float m_AspectRatio = 16.0f / 9.0f;
 

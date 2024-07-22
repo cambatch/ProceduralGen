@@ -11,14 +11,6 @@
 #include "shader.hpp"
 
 
-std::vector<uint8_t> CreateColorMap(const std::vector<float>& heightMap);
-std::vector<uint8_t> GetColor(float val);
-
-
-std::vector<uint8_t> g_FullColorMap((32 * 32) * 4);
-std::vector<float> g_FullNoiseMap((256*256) * 4);
-
-
 App::App(int32_t width, int32_t height, const char* title)
     : m_Window(width, height, title), m_Input(m_Window.GetGLFWWindow()), m_Camera(&m_Input)
 {
@@ -37,6 +29,8 @@ void App::Run()
     Shader shader("assets/shaders/cube.vert", "assets/shaders/cube.frag");
 
     SetupImgui();
+
+    m_Camera.SetFarClip(360.0f);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
