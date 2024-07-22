@@ -242,7 +242,7 @@ private:
     {
         auto chunk = std::make_unique<Chunk>(Chunk(chunkX, chunkY));
 
-        std::vector<float> heightMap = m_NoiseGen.GenerateNoise2D(chunkX, chunkY, 512);
+        std::vector<float> heightMap = m_NoiseGen.GenerateNoise2D(chunkX, chunkY, 256);
 
         for(int z = 0; z < ChunkSize; ++z)
         {
