@@ -27,6 +27,7 @@ App::~App()
 void App::Run()
 {
     Shader shader("assets/shaders/cube.vert", "assets/shaders/cube.frag");
+    Shader waterShader("assets/shaders/cube.vert", "assets/shaders/water.frag");
 
     SetupImgui();
 
@@ -74,6 +75,17 @@ void App::Run()
             shader.SetUniform("model", model);
 
             chunk->Render();
+        }
+
+        waterShader.Bind();
+        waterShader.SetUniform("view", view);
+        waterShader.SetUniform("projection", proj);
+        for(auto chunk : chunks)
+        {
+            glm::mat4 model(1.0f);
+            model = glm::translate(model, glm::vec3(chunk->X * ChunkSize, 0, chunk->Y * ChunkSize));
+            waterShader.SetUniform("model", model);
+            chunk->RenderWater();
         }
 
         // DrawImGui Stuff
