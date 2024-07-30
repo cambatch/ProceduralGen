@@ -9,6 +9,8 @@
 
 #include "graphics.hpp"
 #include "shader.hpp"
+#include "texture.hpp"
+#include "world.hpp"
 
 
 App::App(int32_t width, int32_t height, const char* title)
@@ -26,12 +28,29 @@ App::~App()
 
 void App::Run()
 {
-    Shader shader("assets/shaders/cube.vert", "assets/shaders/cube.frag");
-    Shader waterShader("assets/shaders/cube.vert", "assets/shaders/water.frag");
+    Shader shader("assets/shaders/terrain.vert", "assets/shaders/terrain.frag");
+    Shader waterShader("assets/shaders/water.vert", "assets/shaders/water.frag");
+    Texture textureAtlas("assets/textures/TextureAtlas.png");
+    Texture waterTexture("assets/textures/Water.jpg");
+
+    const glm::vec3 lightPos = { 0.0f, 10.0f, 100.0f };
+
+    textureAtlas.Bind();
+    shader.Bind();
+    shader.SetUniform("material.diffuse", 0);
+    shader.SetUniform("dirLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
+    shader.SetUniform("dirLight.ambient", glm::vec3(0.05f, 0.05f, 0.05f));
+    shader.SetUniform("dirLight.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
+
+    waterTexture.Bind(1);
+    waterShader.Bind();
+    waterShader.SetUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+    waterShader.SetUniform("lightPos", lightPos);
+    waterShader.SetUniform("waterTexture", 1);
 
     SetupImgui();
 
-    m_Camera.SetFarClip(360.0f);
+    m_Camera.SetFarClip(ChunkSize * ActiveRadius * 2);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -61,13 +80,14 @@ void App::Run()
         glm::mat4 proj = m_Camera.GetProjectionMatrix();
 
         shader.Bind();
-        shader.SetUniform("model", model);
         shader.SetUniform("view", view);
         shader.SetUniform("projection", proj);
+        shader.SetUniform("viewPos", m_Camera.Position);
 
         m_World.UpdateActiveChunks(m_Camera.Position);
         std::vector<const Chunk*> chunks = m_World.GetActiveChunks(m_Camera.Position);
 
+        textureAtlas.Bind();
         for(auto chunk : chunks)
         {
             glm::mat4 model(1.0f);
@@ -80,6 +100,9 @@ void App::Run()
         waterShader.Bind();
         waterShader.SetUniform("view", view);
         waterShader.SetUniform("projection", proj);
+        waterShader.SetUniform("viewPos", m_Camera.Position);
+        waterTexture.Bind(1);
+
         for(auto chunk : chunks)
         {
             glm::mat4 model(1.0f);

@@ -9,17 +9,15 @@
 #include "noise.hpp"
 
 
-// Chunks are 32x256x32
 static const int ChunkSize = 32;
 static const int ChunkHeight = 100;
 static const int ActiveRadius = 5;
 
-
-enum class BlockType : uint8_t
-{
-    AIR = 0,
-    DIRT = 1,
-    WATER = 2
+ enum class BlockType : uint8_t { AIR = 0, DIRT,
+    ROCK,
+    SAND,
+    SNOW,
+    WATER
 };
 
 
@@ -72,6 +70,7 @@ struct Chunk
 
     void CreateGLObjs()
     {
+        const unsigned int stride = sizeof(float) * 8;
         if(Vao) glDeleteVertexArrays(1, &Vao);
         if(Vbo) glDeleteBuffers(1, &Vbo);
         if(Ibo) glDeleteBuffers(1, &Ibo);
@@ -79,16 +78,20 @@ struct Chunk
         Vao = CreateVertexArray();
         Vbo = CreateVertexBuffer(Vertices.data(), sizeof(float) * Vertices.size());
         Ibo = CreateIndexBuffer(Indices.data(), sizeof(unsigned int) * Indices.size());
-        AddVertexAttrib(Vao, 0, VertexAttribType::FLOAT, 3, sizeof(float) * 3, 0);
+        AddVertexAttrib(Vao, 0, VertexAttribType::FLOAT, 3, stride, 0);
+        AddVertexAttrib(Vao, 1, VertexAttribType::FLOAT, 3, stride, sizeof(float) * 3);
+        AddVertexAttrib(Vao, 2, VertexAttribType::FLOAT, 2, stride, sizeof(float) * 6);
 
         if(WaterVao) glDeleteVertexArrays(1, &WaterVao);
         if(WaterVbo) glDeleteBuffers(1, &WaterVbo);
         if(WaterIbo) glDeleteBuffers(1, &WaterIbo);
-    
+
         WaterVao = CreateVertexArray();
         WaterVbo = CreateVertexBuffer(WaterVertices.data(), sizeof(float) * WaterVertices.size());
         WaterIbo = CreateIndexBuffer(WaterIndices.data(), sizeof(unsigned int) * WaterIndices.size());
-        AddVertexAttrib(WaterVao, 0, VertexAttribType::FLOAT, 3, sizeof(float) * 3, 0);
+        AddVertexAttrib(WaterVao, 0, VertexAttribType::FLOAT, 3, stride, 0);
+        AddVertexAttrib(WaterVao, 1, VertexAttribType::FLOAT, 3, stride, sizeof(float) * 3);
+        AddVertexAttrib(WaterVao, 2, VertexAttribType::FLOAT, 2, stride, sizeof(float) * 6);
     }
 };
 
@@ -103,9 +106,16 @@ struct HashPair
     }
 };
 
-inline void AddFace(std::vector<float>& vertices, std::vector<unsigned int>& indices, unsigned int& indexOffset, glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 v3)
+inline void AddFace(std::vector<float>& vertices, std::vector<unsigned int>& indices, unsigned int& indexOffset,
+                    glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 v3,
+                    glm::vec3 normal, glm::vec2 texCoord0, glm::vec2 texCoord1, glm::vec2 texCoord2, glm::vec2 texCoord3)
 {
-    vertices.insert(vertices.end(), { v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z });
+    vertices.insert(vertices.end(), {
+                v0.x, v0.y, v0.z, normal.x, normal.y, normal.z, texCoord0.x, texCoord0.y,
+                v1.x, v1.y, v1.z, normal.x, normal.y, normal.z, texCoord1.x, texCoord1.y,
+                v2.x, v2.y, v2.z, normal.x, normal.y, normal.z, texCoord2.x, texCoord2.y,
+                v3.x, v3.y, v3.z, normal.x, normal.y, normal.z, texCoord3.x, texCoord3.y
+    });
 
     indices.insert(indices.end(), { indexOffset, indexOffset + 1, indexOffset + 2, indexOffset, indexOffset + 2, indexOffset + 3 });
     indexOffset += 4;
@@ -120,8 +130,20 @@ inline void GenerateChunkMesh(Chunk& chunk)
     unsigned int indexOffset = 0;
     unsigned int waterIndexOffset = 0;
 
-    auto addFace = [&](std::vector<float>& vertices, std::vector<unsigned int>& indices, unsigned int& indexOffset, glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 v3) {
-        AddFace(vertices, indices, indexOffset, v0, v1, v2, v3);
+    const glm::vec2 dirtTexCoords[4] = {
+        {0.5f, 0.5f}, {0.5f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.5f}
+    };
+    const glm::vec2 rockTexCoords[4] = {
+        {0.5f, 0.5f}, {1.0f, 0.5f}, {1.0f, 1.0f}, {0.5f, 1.0f}
+    };
+    const glm::vec2 sandTexCoords[4] = {
+        {0.5f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.5f}, {0.5f, 0.5f}
+    };
+    const glm::vec2 snowTexCoords[4] = {
+        {0.0f, 0.0f}, {0.5f, 0.0f}, {0.5f, 0.5f}, {0.0f, 0.5f}
+    };
+    const glm::vec2 waterTexCoords[4] = {
+        {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}
     };
 
     for (int x = 0; x < ChunkSize; ++x)
@@ -131,6 +153,36 @@ inline void GenerateChunkMesh(Chunk& chunk)
             for (int z = 0; z < ChunkSize; ++z)
             {
                 if (chunk.Blocks[x][y][z] == BlockType::AIR) continue;
+
+                glm::vec3 normal;
+                glm::vec2 const* texCoords = nullptr;
+                switch(chunk.Blocks[x][y][z])
+                {
+                    case BlockType::DIRT: {
+                        texCoords = dirtTexCoords;
+                        break;
+                    }
+                    case BlockType::ROCK: {
+                        texCoords = rockTexCoords;
+                        break;
+                    }
+                    case BlockType::SAND: {
+                        texCoords = sandTexCoords;
+                        break;
+                    }
+                    case BlockType::SNOW: {
+                        texCoords = snowTexCoords;
+                        break;
+                    }
+                    case BlockType::WATER: {
+                        texCoords = waterTexCoords;
+                        break;
+                    }
+                    case BlockType::AIR: {
+                        // continue;
+                        break;
+                    }
+                }
 
                 bool isWater = (chunk.Blocks[x][y][z] == BlockType::WATER);
                 std::vector<float>& vertices = isWater ? chunk.WaterVertices : chunk.Vertices;
@@ -143,7 +195,7 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {0, 0, 1}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
                 if (x == ChunkSize - 1 || chunk.Blocks[x + 1][y][z] == BlockType::AIR || (isWater && chunk.Blocks[x + 1][y][z] != BlockType::WATER))
                 {
@@ -151,7 +203,7 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {1, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 0, 1}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
                 if (y == 0 || chunk.Blocks[x][y - 1][z] == BlockType::AIR || (isWater && chunk.Blocks[x][y - 1][z] != BlockType::WATER))
                 {
@@ -159,7 +211,7 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
                 if (y == ChunkHeight - 1 || chunk.Blocks[x][y + 1][z] == BlockType::AIR || (isWater && chunk.Blocks[x][y + 1][z] != BlockType::WATER))
                 {
@@ -167,7 +219,7 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {0, 1, 0}, {1, 1, 0}, {1, 1, 1}, {0, 1, 1}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
                 if (z == 0 || chunk.Blocks[x][y][z - 1] == BlockType::AIR || (isWater && chunk.Blocks[x][y][z - 1] != BlockType::WATER))
                 {
@@ -175,7 +227,7 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
                 if (z == ChunkSize - 1 || chunk.Blocks[x][y][z + 1] == BlockType::AIR || (isWater && chunk.Blocks[x][y][z + 1] != BlockType::WATER))
                 {
@@ -183,14 +235,14 @@ inline void GenerateChunkMesh(Chunk& chunk)
                     glm::vec3 offsets[4] = {
                         {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}
                     };
-                    addFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3]);
+                    AddFace(vertices, indices, idxOffset, glm::vec3{x, y, z} + offsets[0], glm::vec3{x, y, z} + offsets[1], glm::vec3{x, y, z} + offsets[2], glm::vec3{x, y, z} + offsets[3], normal, texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
                 }
             }
         }
     }
+
     chunk.CreateGLObjs();
 }
-
 
 class World
 {
@@ -293,7 +345,7 @@ private:
                 }
             }
         }
-        
+
         GenerateChunkMesh(*chunk);
 
         m_ChunkMap[ChunkKey{chunkX, chunkY}] = std::move(chunk);

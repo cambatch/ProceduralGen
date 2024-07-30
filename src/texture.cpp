@@ -52,6 +52,8 @@ Texture::Texture(const char* path)
         std::cerr << "Failed to load texture at path: " << path << '\n';
     }
 
+    this->id = id;
+
     stbi_image_free(data);
 }
 
